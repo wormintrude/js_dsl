@@ -1,0 +1,102 @@
+#!/usr/bin/python
+# Prueba de concepto de DSL para administracion de servidores
+# PAMI
+# Mariano Vecchioli <vecchioli@redhat.com>
+
+import cmd
+import MySQLdb as mysqldb
+import os
+
+class logger(object):
+	def __init__(self):
+		pass
+	#	# DEBUG de conexion
+	#	print "Initializing Logger"
+	#	try:
+	#		database = mysqldb.connect(host="127.0.0.1", user="jsdsl", passwd="redhat01", db="jsdsl")
+	#		#cursor = database.cursor()
+	#		#sql = "SELECT * FROM command_history"
+	#		#cursor.execute(sql)
+	#		#print cursor.fetchall()
+	#		#print "Logger database initialized. Logging..."
+	#		database.close()
+	#	except:
+	#		print "Could not initialize Logger database"
+	
+	def log_command(self, ticket_number, user_name, server, command):
+		database = mysqldb.connect(host="127.0.0.1", user="jsdsl", passwd="redhat01", db="jsdsl")
+		cursor = database.cursor()
+		sql = 'INSERT INTO command_history (ticket_number, user_name, server, command) VALUES (\"' + ticket_number + '\", \"' + user_name + '\", \"' + server + '\", \"' + command + '\");'
+		#print sql
+		try:
+			cursor.execute(sql)
+			database.commit()
+			#print "Command logged to database."
+		except:
+			database.rollback()
+			print "Could not log to database."
+		try:
+			database.close()
+		except:
+			print "Could not close database connection."
+		return True
+
+class sandbox(cmd.Cmd):
+
+	user_name = os.getlogin()
+	ticket_number = raw_input("Numero de ticket: ")
+	server = "jump_host"
+	logger().log_command(ticket_number, user_name, server, "login")
+	
+	prompt = '> '
+	intro = "RHEAS v0.01"
+
+	def do_version(self, line):
+		"""
+		Indica la version de RHEAS
+		"""
+		print "RHEAS (Red Hat Enterprise Administration Sandbox) Version 0.01"
+		logger().log_command(self.ticket_number, self.user_name, self.server, "version " + str(line))
+
+	def do_quit(self, line):
+		"""
+		Sale del shell de RHEAS
+		"""
+		logger().log_command(self.ticket_number, self.user_name, self.server, "quit" + str(line))
+		return True
+
+	def do_connect(self, line):
+		"""
+		Conecta la sesion del usuario logueado a RHEAS a un servidor
+		"""
+		self.server = line
+		print "Connected to server:", self.server
+		logger().log_command(self.ticket_number, self.user_name, self.server, "connect " + str(line))
+
+	def do_close(self, line):
+		"""
+		Desconecta la sesion del usuario del servidor remoto
+		"""
+		print "Desconectando del servidor"
+		self.server = "jump_host"
+		logger().log_command(self.ticket_number, self.user_name, self.server, "close " + str(line))
+
+	def do_sudo(self, line):
+		"""
+		Ejecuta un comando como root en el servidor al cual se ha hecho 'connect'
+		"""
+		command = line
+		print "Executing command:", command
+		print "Alguna salida del comando... <blah>"
+		logger().log_command(self.ticket_number, self.user_name, self.server, "sudo " + str(line))
+
+	def do_hola(self, line):
+		"""
+		Saluda
+		"""
+		print "Saludos, " + self.user_name
+		logger().log_command(self.ticket_number, self.user_name, self.server, "hola " + str(line))
+
+if __name__ == '__main__':
+	logger()
+	sandbox().cmdloop()
